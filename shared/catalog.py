@@ -10,7 +10,7 @@ the Free Software Foundation, either version 3 of the License, or (at
 your option) any later version.
 """
 import typing
-import pathlib
+import pathlib, fcntl
 from shared import deser, hash #, experimental
 
 class Catalog(typing.NamedTuple):
@@ -47,8 +47,53 @@ class Catalog(typing.NamedTuple):
         # write it to disk
         item_path = catalog.item_path(_hash)
         with open(catalog.item_path(_hash), 'wb') as buffer:
-            deser.serialize(catalog.Type, item, buffer)
-        # TODO set as read only
+            # acquire exclusive lock blocking
+            fcntl.flock(buffer, fcntl.LOCK_EX)
+            exception = None
+            try:
+                # serialize and write
+                deser.serialize(catalog.Type, item, buffer)
+            except Exception as exception:
+                pass  # we release the lock before raising
+            # release lock
+            fcntl.flock(buffer, fcntl.LOCK_UN)
+
+            if exception is not None:
+                raise exception
+            
+        # set as read only
+        item_path.chmod(0o400)
+        return _hash
+
+    E_ADD_NOSAFE = type("E_ADD_NOSAFE", (Exception,), {})
+    def add_nosafe(catalog, item) -> "Hash":
+        """variant of add: fails if exists"""
+        # derive hash
+        _hash = hash.hash(catalog.salt, catalog.Type, item)
+        # already in catalog ?
+        if catalog.contains(_hash):
+            raise E_ADD_NOSAFE(f"Already contained in catalog: {_hash.hex()}")
+        # write it to disk
+        item_path = catalog.item_path(_hash)
+        with open(catalog.item_path(_hash), 'wb') as buffer:
+            # acquire exclusive lock NON blocking (would raise BlockingIOError)
+            try:
+                fcntl.flock(buffer, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise E_ADD_NOSAFE(f"Already locked in catalog: {_hash.hex()}")
+            exception = None
+            try:
+                # serialize and write
+                deser.serialize(catalog.Type, item, buffer)
+            except Exception as exception:
+                pass  # we release the lock before raising
+            # release lock
+            fcntl.flock(buffer, fcntl.LOCK_UN)
+
+            if exception is not None:
+                raise exception
+            
+        # set as read only
         item_path.chmod(0o400)
         return _hash
     
@@ -59,7 +104,20 @@ class Catalog(typing.NamedTuple):
         # it can now be reloaded
         item_path = catalog.item_path(hash)
         with open(catalog.item_path(hash), 'rb') as buffer:
-            item = deser.deserialize(catalog.Type, buffer)
+            # acquire shared lock blocking
+            fcntl.flock(buffer, fcntl.LOCK_SH)
+            exception = None
+            try:
+                # read and deserialize
+                item = deser.deserialize(catalog.Type, buffer)
+            except Exception as exception:
+                pass  # we release the lock before raising
+            # release lock
+            fcntl.flock(buffer, fcntl.LOCK_UN)
+
+            if exception is not None:
+                raise exception
+
         return item
 
     def iter(catalog) -> ["Hash"]:
