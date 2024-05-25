@@ -9,6 +9,9 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or (at
 your option) any later version.
 """
+"""author: jb.escudie
+license: GNU GPLv3
+"""
 import typing
 
 ### future ( not used yet: current implementation is at mdule level )
@@ -112,8 +115,9 @@ def is_iterator_empty(iterator):
         return True
 
 # container and base types
+base_types = (str, int, float, bool, bytes)
 def is_base_type(Type):
-    return Type in (str, int, float, bool, bytes)
+    return Type in base_types
 
 StartContainerToken = b'['
 SeparatorToken = bytes(1)  # TODO may require escaping
