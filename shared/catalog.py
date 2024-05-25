@@ -80,12 +80,13 @@ class Catalog(typing.NamedTuple):
             try:
                 fcntl.flock(buffer, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError:
-                raise E_ADD_NOSAFE(f"Already locked in catalog: {_hash.hex()}")
+                raise catalog.E_ADD_NOSAFE(f"Already locked in catalog: {_hash.hex()}")
             exception = None
             try:
                 # serialize and write
                 deser.serialize(catalog.Type, item, buffer)
-            except Exception as exception:
+            except Exception as _exception:
+                exception = _exception
                 pass  # we release the lock before raising
             # release lock
             fcntl.flock(buffer, fcntl.LOCK_UN)
@@ -110,7 +111,8 @@ class Catalog(typing.NamedTuple):
             try:
                 # read and deserialize
                 item = deser.deserialize(catalog.Type, buffer)
-            except Exception as exception:
+            except Exception as _exception:
+                exception = _exception
                 pass  # we release the lock before raising
             # release lock
             fcntl.flock(buffer, fcntl.LOCK_UN)
