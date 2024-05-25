@@ -34,7 +34,6 @@ def pretty(hparams, depth=0):
 
     return rpr
 
-
 def is_HPARAMS_subclass(obj) -> bool:
     if not isinstance(obj, type):
         raise TypeError(f"expected a type, got {type(obj).__name__}")
