@@ -1,14 +1,3 @@
-"""Catalog module.
-
-
-Copyright 2023 Jean-Baptiste Escudié
-
-
-This program is Free Software. You can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or (at
-your option) any later version.
-"""
 import typing
 import pathlib, fcntl
 from shared import deser, hash #, experimental
@@ -72,7 +61,7 @@ class Catalog(typing.NamedTuple):
         _hash = hash.hash(catalog.salt, catalog.Type, item)
         # already in catalog ?
         if catalog.contains(_hash):
-            raise E_ADD_NOSAFE(f"Already contained in catalog: {_hash.hex()}")
+            raise catalog.E_ADD_NOSAFE(f"Already contained in catalog: {_hash.hex()}")
         # write it to disk
         item_path = catalog.item_path(_hash)
         with open(catalog.item_path(_hash), 'wb') as buffer:
@@ -233,7 +222,20 @@ def test_FileCatalog():
     # clean up
     shutil.rmtree( pathlib.Path(catalog.path) )
 
-        
+
+if __name__ == "__main__":
+    import sys, shared.utils, shared.hparams
+    argv = [arg for arg in sys.argv if not arg.startswith("--")]
+    catalog_qualname = argv[1]
+    ro_catalog = shared.utils.ro_catalog_from_qualname(catalog_qualname)
+    for h in ro_catalog.iter():
+        if "--pretty" in sys.argv:
+            item = ro_catalog.get(h)
+            print(shared.hparams.pretty(item))
+        else:
+            print(h.hex())
+    
+    
 if __name__ == "debug":
     import pathlib
     import os
